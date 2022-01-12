@@ -35,11 +35,18 @@ void setup() {
   while (!Serial);
   pinMode(LED, OUTPUT);
   pinMode(FAN, OUTPUT);
+  pinMode(PUMP, OUTPUT);
   sCmd.addCommand("LEDUP", ledOn);
   sCmd.addCommand("LEDDOWN", ledOff);
   sCmd.addCommand("FANUP", fanOn);
   sCmd.addCommand("FANDOWN", fanOff);
+  sCmd.addCommand("PUMPUP", pumpOn);
+  sCmd.addCommand("PUMPDOWN", pumpOff);
   startTempSensor();
+
+  /*digitalWrite(PUMP, HIGH);
+  delay(1800);
+  digitalWrite(PUMP, LOW);*/
   delay(1000);
 }
 
@@ -156,6 +163,27 @@ void checkHumidity(){
    writeToUnity(40,60,states, false, percentageHumidity, mayTurnOnPump, "q");
 }
 
+void pumpOn (const char *command){
+  pumpOn();
+}
+void pumpOn (){
+  if(!pumpIsOn){
+    pumpIsOn = true;
+    switchPin(PUMP,pumpIsOn);
+  }
+}
+void pumpOff (const char *command){
+  pumpOff();
+}
+void pumpOff (){
+  if(pumpIsOn){
+    pumpIsOn = false;
+    switchPin(PUMP,pumpIsOn);
+  }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 void switchPin(int pinNumber, bool sensorState){
   if(sensorState){
     digitalWrite(pinNumber, HIGH);
