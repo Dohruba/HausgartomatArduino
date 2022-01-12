@@ -19,17 +19,17 @@ No Led, Flash from 20cm(ambient), 140-180
 flash lvl 4 samambientg a70, from 20~ cm
 resistor 1kOhm
 */
-//Light sensor
+//Light sensor///////////
 int light = 0;
-bool ledIsOn = true;
-//Temperature
+bool ledIsOn = false;
+//Temperature////////////
 bool fanIsOn = false;
-//Moisture Sensor
+//Moisture Sensor////////
 //A0 Value1: Air;
 //A0 Value2: Water;
 const int wet = 328;
 const int dry = 796;
-//Water Pump
+//Water Pump/////////////
 bool pumpIsOn = false;
 
 void setup() {
@@ -43,12 +43,11 @@ void setup() {
   sCmd.addCommand("FANDOWN", fanOff);
   startTempSensor();
   //Temporary for test
-  ledOn();
+  /*ledOn();
   fanOn();
   delay(2000);
   ledOff();
-  fanOff();
-  //Temp end
+  fanOff();*/
   delay(1000);
 }
 
@@ -64,9 +63,8 @@ void loop() {
   delay(1000);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////// Light Management ////////////////////////
+////////// Light Management //////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
-
 void ledCheck(){
   light = analogRead(A0);
   String states[6] = {"a","b","c","d","e","f"} ;
