@@ -5,6 +5,7 @@
 #define LED 13
 #define FAN 3
 #define TEMP 2
+#define PUMP 4
 SerialCommand sCmd;
 OneWire oneWire(TEMP);
 DallasTemperature sensors(&oneWire);
@@ -18,22 +19,18 @@ No Led, Flash from 20cm(ambient), 140-180
 flash lvl 4 samambientg a70, from 20~ cm
 resistor 1kOhm
 */
-//Light sensor stuff
+//Light sensor
 int light = 0;
 bool ledIsOn = true;
-
-
-//Temperature stuff
+//Temperature
 bool fanIsOn = false;
-
-
 //Moisture Sensor
 //A0 Value1: Air;
 //A0 Value2: Water;
 const int wet = 328;
 const int dry = 796;
-
-
+//Water Pump
+bool pumpIsOn = false;
 
 void setup() {
   Serial.begin(9600);
@@ -45,25 +42,23 @@ void setup() {
   sCmd.addCommand("FANUP", fanOn);
   sCmd.addCommand("FANDOWN", fanOff);
   startTempSensor();
-  
   //Temporary for test
   ledOn();
   fanOn();
-  delay(3000);
+  delay(2000);
   ledOff();
   fanOff();
   //Temp end
-  
-  delay(2000);
+  delay(1000);
 }
 
 void loop() {
   ledCheck();
-  delay(100);
+  delay(150);
   fanCheck();
-  delay(100);
+  delay(150);
   checkHumidity();
-  delay(100);
+  delay(150);
   if (Serial.available() > 0)
       sCmd.readSerial();
   delay(1000);
@@ -74,149 +69,48 @@ void loop() {
 
 void ledCheck(){
   light = analogRead(A0);
-  //Serial.print("Amount of light: ");
-  //Serial.print(light);
-  //Serial.print(", "); 
-  // Case 1
-  // Too much light, Led + ambient 
-  // Case 2
-  // Too much light, Only ambient
-  if(light > 200){
-    //ledOff();//TESTING
-    if(ledIsOn){
-      //Serial.println("Case 1");
-      Serial.println("a");
-    }else {
-      //Serial.println("Case 2");
-      Serial.println("b");
-    }
-    Serial.flush();
-    delay(20);
-    }
-
-  // Case 3
-  // Good enough light, ambient + led
-  // Case 4
-  // Good enough light, only ambient
-  if(light < 201 && light > 100){
-    if(ledIsOn){
-      //Serial.println("Case 3");
-      Serial.println("c");
-    }else {
-      //Serial.println("Case 4");
-      Serial.println("d");
-    }
-    Serial.flush();
-    delay(20);
-    
-    }
-  // Case 5
-  // Too little light, ambient only
-  // Case 6
-  // Too little light, ambient + ledOn (busted, obstructed)
-  if(light < 100){
-    //ledOn ();//TESTING
-    if(!ledIsOn){
-      //Serial.println("Case 5");
-      Serial.println("e");
-    }else {
-      //Serial.println("Case 6");
-      Serial.println("f");
-    }
-    Serial.flush();
-    delay(20);
-    }
+  String states[6] = {"a","b","c","d","e","f"} ;
+  writeToUnity(100,200,states, ledIsOn, light);
 }
 
 void ledOn (const char *command){
   ledOn();
 }
 void ledOn (){
-  if(!ledIsOn){
-  digitalWrite(LED, LOW);
   ledIsOn = true;
-  }
+  switchPin(LED,ledIsOn);
 }
 void ledOff (const char *command){
   ledOff();
 }
 void ledOff (){
-  if(ledIsOn){
-  digitalWrite(LED, HIGH);
   ledIsOn = false;
-  }
+  switchPin(LED,ledIsOn);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////// Temp Management ////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
-
+//void writeToUnity(int minimum, int maximum, char state[], bool sensor, int value){
 void fanCheck(){
   sensors.requestTemperatures();
   float tempC = printTemperature(insideThermometer);
-  //Serial.println(tempC);
-  // Case 7
-  // Too hot, fan on 
-  // Case 8
-  // Too hot, fan off
-  if(tempC > 20){
-    //ledOff();//TESTING
-    if(fanIsOn){
-      //Serial.println("Case 7");
-      Serial.println("g");
-    }else {
-      Serial.println("h");
-    }
-    Serial.flush();
-    delay(20);
-    }
-
-  // Case 9
-  //  Good, fan on
-  // Case 10
-  // Good, fan off
-  if(tempC > 18 && tempC <= 20){
-    if(fanIsOn){
-      Serial.println("i");
-    }else {
-      Serial.println("j");
-    }
-    Serial.flush();
-    delay(20);
-    
-    }
-  // Case 11
-  // Too cold, fan on
-  // Case 12
-  // // Too cold, fan off
-  if(tempC <= 18){
-    //fanOn ();//TESTING
-    if(fanIsOn){
-      Serial.println("k");
-    }else {
-      Serial.println("l");
-    }
-    Serial.flush();
-    delay(20);
-    }
+  String states[6] = {"g","h","i","j","k","l"} ;
+  writeToUnity(18,20,states, fanIsOn, tempC);  
 }
 
 void fanOn (const char *command){
   fanOn();
 }
 void fanOn (){
-  if(!fanIsOn){
-  digitalWrite(FAN, HIGH);
-  fanIsOn = true;
-  }
+  fanIsOn=true;
+  switchPin(FAN,fanIsOn);
 }
 void fanOff (const char *command){
   fanOff();
 }
 void fanOff (){
-  if(fanIsOn){
-  digitalWrite(FAN, LOW);
-  fanIsOn = false;
-  }
+  fanIsOn=false;
+  switchPin(FAN,fanIsOn);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////// Temp Measurement ////////////////////////
@@ -265,19 +159,40 @@ void checkHumidity(){
    int percentageHumidity = map(sensorVal, wet, dry, 100, 0); 
 //For now between 40-60%
 //If camera available, we could try to stablish humidity percentages by growing stages
-   /*Serial.print(sensorVal);
-   Serial.print(",  ");
-   Serial.print(percentageHumididy);
-   Serial.println("%");*/
-   //States m,n
-   Serial.println(percentageHumidity);
-   if(percentageHumidity < 60 && percentageHumidity > 40){
-      Serial.println("m");// Good, pump should be off
-   }else if(percentageHumidity < 40){
-      Serial.println("n");//Turn on pump
-   }else if(percentageHumidity > 60){
-      Serial.println("o");// Require User Attention
-   }
-   
-   delay(400);
+   String states[6] = {"m","n","o","p","q","r"} ;
+   writeToUnity(40,60,states, false, percentageHumidity);
+}
+
+void switchPin(int pinNumber, bool sensorState){
+  if(sensorState){
+    digitalWrite(pinNumber, HIGH);
+  }else{
+    digitalWrite(pinNumber,LOW);
+  }
+}
+
+void writeToUnity(int minimum, int maximum, String state[], bool sensor, int value){
+  if(value > maximum){
+    if(sensor){
+      Serial.println(state[0]);
+    }else{
+      Serial.println(state[1]);
+    }
+  }
+  if(value >= minimum && value <= maximum){
+    if(sensor){
+      Serial.println(state[2]);
+    }else{
+      Serial.println(state[3]);
+    }
+  }
+  if(value < minimum){
+    if(sensor){
+      Serial.println(state[4]);
+    }else{
+      Serial.println(state[5]);
+    }
+  }
+  Serial.flush();
+  delay(20);
 }
