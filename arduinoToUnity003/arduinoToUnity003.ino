@@ -10,27 +10,25 @@ SerialCommand sCmd;
 OneWire oneWire(TEMP);
 DallasTemperature sensors(&oneWire);
 DeviceAddress insideThermometer;
-/*
-Blue led by the sensor, no external delivers 140-180
-Blue led plus flash (Ambient) from 20cm(ambient) delivers over 300
-No Led, No external, under 50
-No Led, Flash from 20cm(ambient), 140-180
 
-flash lvl 4 samambientg a70, from 20~ cm
-resistor 1kOhm
-*/
 //Light sensor///////////
 int light = 0;
 bool ledIsOn = false;
+bool mayTurnOnLED = false;
+
 //Temperature////////////
 bool fanIsOn = false;
+bool mayTurnOnFan = false;
+
 //Moisture Sensor////////
 //A0 Value1: Air;
 //A0 Value2: Water;
 const int wet = 328;
 const int dry = 796;
+
 //Water Pump/////////////
 bool pumpIsOn = false;
+bool mayTurnOnPump = false;
 
 void setup() {
   Serial.begin(9600);
@@ -42,12 +40,6 @@ void setup() {
   sCmd.addCommand("FANUP", fanOn);
   sCmd.addCommand("FANDOWN", fanOff);
   startTempSensor();
-  //Temporary for test
-  /*ledOn();
-  fanOn();
-  delay(2000);
-  ledOff();
-  fanOff();*/
   delay(1000);
 }
 
@@ -61,6 +53,10 @@ void loop() {
   if (Serial.available() > 0)
       sCmd.readSerial();
   delay(1000);
+  /*Serial.println("Lamp, Fan, Pump may turn on: " );
+  Serial.println(mayTurnOnLED);
+  Serial.println(mayTurnOnFan);
+  Serial.println(mayTurnOnPump);*/
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////
 ////////// Light Management //////////////////////////////////////////////////////////////////
@@ -68,7 +64,7 @@ void loop() {
 void ledCheck(){
   light = analogRead(A0);
   String states[6] = {"a","b","c","d","e","f"} ;
-  writeToUnity(100,200,states, ledIsOn, light);
+  writeToUnity(100,200,states, ledIsOn, light, mayTurnOnLED, "e");
 }
 
 void ledOn (const char *command){
@@ -82,8 +78,8 @@ void ledOff (const char *command){
   ledOff();
 }
 void ledOff (){
-  ledIsOn = false;
-  switchPin(LED,ledIsOn);
+    ledIsOn = false;
+    switchPin(LED,ledIsOn);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////// Temp Management ////////////////////////
@@ -93,7 +89,7 @@ void fanCheck(){
   sensors.requestTemperatures();
   float tempC = printTemperature(insideThermometer);
   String states[6] = {"g","h","i","j","k","l"} ;
-  writeToUnity(18,20,states, fanIsOn, tempC);  
+  writeToUnity(18,20,states, fanIsOn, tempC, mayTurnOnFan,"g");  
 }
 
 void fanOn (const char *command){
@@ -152,13 +148,12 @@ void printAddress(DeviceAddress deviceAddress)
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 void checkHumidity(){
-  int sensorVal = analogRead(A1);
- 
+   int sensorVal = analogRead(A1);
    int percentageHumidity = map(sensorVal, wet, dry, 100, 0); 
 //For now between 40-60%
 //If camera available, we could try to stablish humidity percentages by growing stages
    String states[6] = {"m","n","o","p","q","r"} ;
-   writeToUnity(40,60,states, false, percentageHumidity);
+   writeToUnity(40,60,states, false, percentageHumidity, mayTurnOnPump, "q");
 }
 
 void switchPin(int pinNumber, bool sensorState){
@@ -169,28 +164,41 @@ void switchPin(int pinNumber, bool sensorState){
   }
 }
 
-void writeToUnity(int minimum, int maximum, String state[], bool sensor, int value){
-  if(value > maximum){
-    if(sensor){
+void writeToUnity(int minimum, int maximum, String state[], 
+                  bool sensor, int value, 
+                  bool &mayTurnOn, String noTurnOnCondition){
+  String actualState;
+  if(value < minimum){
+    if(!sensor){
       Serial.println(state[0]);
+      actualState = state[0];
     }else{
       Serial.println(state[1]);
+      actualState = state[1];
     }
   }
   if(value >= minimum && value <= maximum){
-    if(sensor){
+    if(!sensor){
       Serial.println(state[2]);
+      actualState = state[2];
     }else{
       Serial.println(state[3]);
+      actualState = state[3];
     }
   }
-  if(value < minimum){
-    if(sensor){
+  if(value > maximum){
+    if(!sensor){
       Serial.println(state[4]);
+      actualState = state[4];
     }else{
       Serial.println(state[5]);
+      actualState = state[5];
     }
   }
+  if(actualState==noTurnOnCondition)
+    mayTurnOn = false;
+  else
+    mayTurnOn = true;
   Serial.flush();
   delay(20);
 }
