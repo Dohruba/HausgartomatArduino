@@ -11,22 +11,22 @@ OneWire oneWire(TEMP);
 DallasTemperature sensors(&oneWire);
 DeviceAddress insideThermometer;
 
-//Light sensor///////////
+//Light sensor variables ///////////
 int light = 0;
 bool ledIsOn = false;
 bool mayTurnOnLED = true;
 
-//Temperature////////////
+//Temperature sensor variables////////////
 bool fanIsOn = false;
 bool mayTurnOnFan = true;
 
-//Moisture Sensor////////
+//Moisture Sensor variables////////
 //A0 Value1: Air;
 //A0 Value2: Water;
 const int wet = 328;
 const int dry = 796;
 
-//Water Pump/////////////
+//Water Pump variables/////////////
 bool pumpIsOn = false;
 bool mayTurnOnPump = true;
 
@@ -48,7 +48,7 @@ void setup() {
 }
 
 void loop() {
-  ledCheck();
+  lightCheck();
   delay(1000);
   if (Serial.available() > 0)
       sCmd.readSerial();
@@ -56,7 +56,7 @@ void loop() {
 ////////////////////////////////////////////////////////////////////////////////////////////////
 ////////// Light Management //////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
-void ledCheck(){
+void lightCheck(){
   light = analogRead(A0);
   //Serial.println(light);
   String states[6] = {"a","b","c","d","e","f"} ;
@@ -81,7 +81,7 @@ void ledOff (){
 //////////////////////////////////////////////////// Temp Management ////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //void writeToUnity(int minimum, int maximum, char state[], bool sensor, int value){
-void fanCheck(){
+void tempCheck(){
   sensors.requestTemperatures();
   float tempC = printTemperature(insideThermometer);
   String states[6] = {"g","h","i","j","k","l"} ;
@@ -145,7 +145,7 @@ void printAddress(DeviceAddress deviceAddress)
 /**
  * Check earth humidity.
  */
-void checkHumidity(){
+void humidityCheck(){
    int sensorVal = analogRead(A1);
    int percentageHumidity = map(sensorVal, wet, dry, 100, 0); 
 //For now between 40-60%
@@ -178,8 +178,8 @@ void pumpOff (){
 /**
  * Function to turn an equipment on or off, depending on it´s desired state.
  */
-void switchPin(int pinNumber, bool sensorState){
-  if(sensorState){
+void switchPin(int pinNumber, bool equipmentState){
+  if(equipmentState){
     digitalWrite(pinNumber, HIGH);
   }else{
     digitalWrite(pinNumber,LOW);
@@ -197,13 +197,18 @@ void switchPin(int pinNumber, bool sensorState){
  * The order of the conditions must be from low to high, 
  * alternating the state of the relevant equipment, starting with "OFF".
  * If there is no equipment attached, then it´s state will always be "OFF".
+ * 
+ * noTurnOnCondition is the condition in wich an equipment may not be turned on,
+ * to reduce the amount of possible errors from the user.
+ * Example: "Earth too Wet, Pump OFF" or "Light too intense, LED off"
  */
 void writeToUnity(int minimum, int maximum, String state[], 
-                  bool sensor, int value, 
+                  bool equipmentON, int sensorValue, 
                   bool &mayTurnOn, String noTurnOnCondition){
   String actualState;
-  if(value < minimum){
-    if(!sensor){
+  //Too low
+  if(sensorValue < minimum){
+    if(!equipmentON){
       Serial.println(state[0]);
       actualState = state[0];
     }else{
@@ -211,8 +216,9 @@ void writeToUnity(int minimum, int maximum, String state[],
       actualState = state[1];
     }
   }
-  if(value >= minimum && value <= maximum){
-    if(!sensor){
+  //Optimum
+  if(sensorValue >= minimum && sensorValue <= maximum){
+    if(!equipmentON){
       Serial.println(state[2]);
       actualState = state[2];
     }else{
@@ -220,8 +226,9 @@ void writeToUnity(int minimum, int maximum, String state[],
       actualState = state[3];
     }
   }
-  if(value > maximum){
-    if(!sensor){
+  //Too high
+  if(sensorValue > maximum){
+    if(!equipmentON){
       Serial.println(state[4]);
       actualState = state[4];
     }else{
