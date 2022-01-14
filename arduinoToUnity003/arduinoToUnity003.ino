@@ -14,11 +14,11 @@ DeviceAddress insideThermometer;
 //Light sensor///////////
 int light = 0;
 bool ledIsOn = false;
-bool mayTurnOnLED = false;
+bool mayTurnOnLED = true;
 
 //Temperature////////////
 bool fanIsOn = false;
-bool mayTurnOnFan = false;
+bool mayTurnOnFan = true;
 
 //Moisture Sensor////////
 //A0 Value1: Air;
@@ -28,7 +28,7 @@ const int dry = 796;
 
 //Water Pump/////////////
 bool pumpIsOn = false;
-bool mayTurnOnPump = false;
+bool mayTurnOnPump = true;
 
 void setup() {
   Serial.begin(9600);
@@ -43,35 +43,24 @@ void setup() {
   sCmd.addCommand("PUMPUP", pumpOn);
   sCmd.addCommand("PUMPDOWN", pumpOff);
   startTempSensor();
-
-  /*digitalWrite(PUMP, HIGH);
-  delay(1800);
-  digitalWrite(PUMP, LOW);*/
+  ledOff();
   delay(1000);
 }
 
 void loop() {
   ledCheck();
-  delay(150);
-  fanCheck();
-  delay(150);
-  checkHumidity();
-  delay(150);
+  delay(1000);
   if (Serial.available() > 0)
       sCmd.readSerial();
-  delay(1000);
-  /*Serial.println("Lamp, Fan, Pump may turn on: " );
-  Serial.println(mayTurnOnLED);
-  Serial.println(mayTurnOnFan);
-  Serial.println(mayTurnOnPump);*/
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////
 ////////// Light Management //////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
 void ledCheck(){
   light = analogRead(A0);
+  //Serial.println(light);
   String states[6] = {"a","b","c","d","e","f"} ;
-  writeToUnity(100,200,states, ledIsOn, light, mayTurnOnLED, "e");
+  writeToUnity(700,800,states, ledIsOn, light, mayTurnOnLED, "e");
 }
 
 void ledOn (const char *command){
@@ -153,14 +142,16 @@ void printAddress(DeviceAddress deviceAddress)
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////// Capacitive Moisture Sensor /////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
-
+/**
+ * Check earth humidity.
+ */
 void checkHumidity(){
    int sensorVal = analogRead(A1);
    int percentageHumidity = map(sensorVal, wet, dry, 100, 0); 
 //For now between 40-60%
 //If camera available, we could try to stablish humidity percentages by growing stages
    String states[6] = {"m","n","o","p","q","r"} ;
-   writeToUnity(40,60,states, false, percentageHumidity, mayTurnOnPump, "q");
+   writeToUnity(40,60,states, pumpIsOn, percentageHumidity, mayTurnOnPump, "q");
 }
 
 void pumpOn (const char *command){
@@ -184,6 +175,9 @@ void pumpOff (){
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+/**
+ * Function to turn an equipment on or off, depending on it´s desired state.
+ */
 void switchPin(int pinNumber, bool sensorState){
   if(sensorState){
     digitalWrite(pinNumber, HIGH);
@@ -191,7 +185,19 @@ void switchPin(int pinNumber, bool sensorState){
     digitalWrite(pinNumber,LOW);
   }
 }
-
+/**
+ * Function to write from arduino to the serial port, which will be read in Unity.
+ * This delivers the "state" in which a condition of the plant finds itself. 
+ * (Temperature, Humidity, Light quantity)
+ * The "states" are defined as follows and apply to all the conditions:
+ * There are 3 main states: "Too low", "Optimum" and "Too much" 
+ * Each main state is divided in 2, depending on a relevant equipment being on or off.
+ * For example: "Too low light, lamp off", "Too low light, lamp ON"
+ * For a total of 6 States per conditon.
+ * The order of the conditions must be from low to high, 
+ * alternating the state of the relevant equipment, starting with "OFF".
+ * If there is no equipment attached, then it´s state will always be "OFF".
+ */
 void writeToUnity(int minimum, int maximum, String state[], 
                   bool sensor, int value, 
                   bool &mayTurnOn, String noTurnOnCondition){
@@ -223,10 +229,12 @@ void writeToUnity(int minimum, int maximum, String state[],
       actualState = state[5];
     }
   }
+  
   if(actualState==noTurnOnCondition)
     mayTurnOn = false;
   else
     mayTurnOn = true;
+    
   Serial.flush();
   delay(20);
 }
