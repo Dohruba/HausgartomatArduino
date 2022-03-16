@@ -14,53 +14,72 @@ DeviceAddress insideThermometer;
 //Light sensor variables ///////////
 int light = 0;
 bool ledIsOn = false;
-bool mayTurnOnLED = true;
 
 //Temperature sensor variables////////////
+int tempCs = 0;
 bool fanIsOn = false;
-bool mayTurnOnFan = true;
 
 //Moisture Sensor variables////////
 //A0 Value1: Air;
 //A0 Value2: Water;
-const int wet = 328;
-const int dry = 796;
+const int wet = 359;
+const int dry = 763;
 
 //Water Pump variables/////////////
+int percentageHumidity = 0;
 bool pumpIsOn = false;
-bool mayTurnOnPump = true;
 
 void setup() {
   Serial.begin(9600);
   while (!Serial);
+  
   pinMode(LED, OUTPUT);
   pinMode(FAN, OUTPUT);
   pinMode(PUMP, OUTPUT);
+  
   sCmd.addCommand("LEDUP", ledOn);
   sCmd.addCommand("LEDDOWN", ledOff);
   sCmd.addCommand("FANUP", fanOn);
   sCmd.addCommand("FANDOWN", fanOff);
   sCmd.addCommand("PUMPUP", pumpOn);
   sCmd.addCommand("PUMPDOWN", pumpOff);
+
+  sCmd.addCommand("GETLIGHT", sendLightToUnity);
+  sCmd.addCommand("GETTEMP", sendTempToUnity);
+  sCmd.addCommand("GETHUMIDITY", sendHumidityToUnity);
   startTempSensor();
   ledOff();
+  fanOff();
+  pumpOff();
   delay(1000);
 }
 
 void loop() {
   lightCheck();
-  delay(1000);
+  delay(200);
+  tempCheck();
+  delay(200);
+  humidityCheck();
+  delay(200);
   if (Serial.available() > 0)
       sCmd.readSerial();
+  delay(200);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////
 ////////// Light Management //////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
+void lightCheck(const char *command){
+  void lightCheck();
+}
 void lightCheck(){
   light = analogRead(A0);
   //Serial.println(light);
-  String states[6] = {"a","b","c","d","e","f"} ;
-  writeToUnity(700,800,states, ledIsOn, light, mayTurnOnLED, "e");
+}
+void sendLightToUnity(const char *command){
+  sendLightToUnity();
+  }
+void sendLightToUnity(){
+  writeToUnity(ledIsOn, light, "l");
 }
 
 void ledOn (const char *command){
@@ -77,16 +96,35 @@ void ledOff (){
     ledIsOn = false;
     switchPin(LED,ledIsOn);
 }
+
+/**
+ * Voltage to Lux (Lumen/m^2) L = BR^m 
+ * L: Light intensity
+ * B:
+ * R: Resistance
+ * m: 
+ */
+void voltageToLux (){
+  
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////// Temp Management ////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
-//void writeToUnity(int minimum, int maximum, char state[], bool sensor, int value){
+void tempCheck(const char *command){
+  tempCheck();
+}
 void tempCheck(){
   sensors.requestTemperatures();
-  float tempC = printTemperature(insideThermometer);
-  String states[6] = {"g","h","i","j","k","l"} ;
-  writeToUnity(18,20,states, fanIsOn, tempC, mayTurnOnFan,"g");  
+  tempCs = printTemperature(insideThermometer);
+  //writeToUnity(fanIsOn, tempCs, "t");
 }
+void sendTempToUnity(const char *command){
+  sendTempToUnity();
+  }
+void sendTempToUnity(){
+  writeToUnity(fanIsOn, tempCs, "t");
+}
+
 
 void fanOn (const char *command){
   fanOn();
@@ -145,13 +183,21 @@ void printAddress(DeviceAddress deviceAddress)
 /**
  * Check earth humidity.
  */
+void humidityCheck(const char *command){
+  humidityCheck();
+}
 void humidityCheck(){
    int sensorVal = analogRead(A1);
-   int percentageHumidity = map(sensorVal, wet, dry, 100, 0); 
+   percentageHumidity = map(sensorVal, wet, dry, 100, 0); 
 //For now between 40-60%
-//If camera available, we could try to stablish humidity percentages by growing stages
-   String states[6] = {"m","n","o","p","q","r"} ;
-   writeToUnity(40,60,states, pumpIsOn, percentageHumidity, mayTurnOnPump, "q");
+   //writeToUnity(pumpIsOn, percentageHumidity, "h");
+}
+
+void sendHumidityToUnity(const char *command){
+  sendHumidityToUnity();
+  }
+void sendHumidityToUnity(){
+  writeToUnity(pumpIsOn, percentageHumidity, "h");
 }
 
 void pumpOn (const char *command){
@@ -175,6 +221,8 @@ void pumpOff (){
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////// General Functions /////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 /**
  * Function to turn an equipment on or off, depending on it´s desired state.
  */
@@ -186,62 +234,26 @@ void switchPin(int pinNumber, bool equipmentState){
   }
 }
 /**
- * Function to write from arduino to the serial port, which will be read in Unity.
- * This delivers the "state" in which a condition of the plant finds itself. 
- * (Temperature, Humidity, Light quantity)
- * The "states" are defined as follows and apply to all the conditions:
- * There are 3 main states: "Too low", "Optimum" and "Too much" 
- * Each main state is divided in 2, depending on a relevant equipment being on or off.
- * For example: "Too low light, lamp off", "Too low light, lamp ON"
- * For a total of 6 States per conditon.
- * The order of the conditions must be from low to high, 
- * alternating the state of the relevant equipment, starting with "OFF".
- * If there is no equipment attached, then it´s state will always be "OFF".
  * 
- * noTurnOnCondition is the condition in wich an equipment may not be turned on,
- * to reduce the amount of possible errors from the user.
- * Example: "Earth too Wet, Pump OFF" or "Light too intense, LED off"
  */
-void writeToUnity(int minimum, int maximum, String state[], 
-                  bool equipmentON, int sensorValue, 
-                  bool &mayTurnOn, String noTurnOnCondition){
-  String actualState;
-  //Too low
-  if(sensorValue < minimum){
-    if(!equipmentON){
-      Serial.println(state[0]);
-      actualState = state[0];
-    }else{
-      Serial.println(state[1]);
-      actualState = state[1];
-    }
+void writeToUnity(bool equipmentON, int sensorValue, String type){
+  String actualState = "";
+  actualState.concat(type);
+  actualState.concat(" ");
+  actualState.concat(sensorValue);  
+  actualState.concat(" ");
+  if(equipmentON){
+    actualState.concat(1);
+  }else{
+    actualState.concat(0);
   }
-  //Optimum
-  if(sensorValue >= minimum && sensorValue <= maximum){
-    if(!equipmentON){
-      Serial.println(state[2]);
-      actualState = state[2];
-    }else{
-      Serial.println(state[3]);
-      actualState = state[3];
-    }
-  }
-  //Too high
-  if(sensorValue > maximum){
-    if(!equipmentON){
-      Serial.println(state[4]);
-      actualState = state[4];
-    }else{
-      Serial.println(state[5]);
-      actualState = state[5];
-    }
-  }
-  
-  if(actualState==noTurnOnCondition)
-    mayTurnOn = false;
-  else
-    mayTurnOn = true;
-    
+  Serial.println(actualState);
   Serial.flush();
-  delay(20);
+  delay(50);
 }
+
+void checkSensorStatus(){
+  //Must implement
+}
+
+//Have to update the write to Unity method, so that it works with the new schema
